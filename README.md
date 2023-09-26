@@ -1,15 +1,11 @@
-<img align="right" width="150" height="150" top="100" src="./assets/blueprint.png">
-
-# huff-project-template • [![ci](https://github.com/huff-language/huff-project-template/actions/workflows/ci.yaml/badge.svg)](https://github.com/huff-language/huff-project-template/actions/workflows/ci.yaml) ![license](https://img.shields.io/github/license/huff-language/huff-project-template.svg) ![solidity](https://img.shields.io/badge/solidity-^0.8.15-lightgrey)
-
-Versatile Huff Project Template using Foundry.
+This project serves as my foray into learning the [Huff prgramming language](https://huff.sh)
 
 
 ## Getting Started
 
 ### Requirements
 
-The following will need to be installed in order to use this template. Please follow the links and instructions.
+The following will need to be installed in order to run this project. Please follow the links and instructions.
 
 -   [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)  
     -   You'll know you've done it right if you can run `git --version`
@@ -24,13 +20,9 @@ The following will need to be installed in order to use this template. Please fo
 
 1. Clone this repo or use template
 
-Click "Use this template" on [GitHub](https://github.com/huff-language/huff-project-template) to create a new repository with this repo as the initial state.
-
-Or run:
-
 ```
-git clone https://github.com/huff-language/huff-project-template
-cd huff-project-template
+git clone https://github.com/0xnonso/huff-pay
+cd huff-pay
 ```
 
 2. Install dependencies
@@ -50,22 +42,6 @@ forge build
 forge test
 ```
 
-For more information on how to use Foundry, check out the [Foundry Github Repository](https://github.com/foundry-rs/foundry/tree/master/forge) and the [foundry-huff library repository](https://github.com/huff-language/foundry-huff).
-
-
-## Blueprint
-
-```ml
-lib
-├─ forge-std — https://github.com/foundry-rs/forge-std
-├─ foundry-huff — https://github.com/huff-language/foundry-huff
-scripts
-├─ Deploy.s.sol — Deployment Script
-src
-├─ SimpleStore — A Simple Storage Contract in Huff
-test
-└─ SimpleStore.t — SimpleStoreTests
-```
 
 
 ## License
