@@ -1,8 +1,6 @@
 This project serves as my foray into learning the [Huff prgramming language](https://huff.sh)
 
 
-## Getting Started
-
 ### Requirements
 
 The following will need to be installed in order to run this project. Please follow the links and instructions.
