@@ -1,4 +1,4 @@
-This project serves as my foray into learning the [Huff prgramming language](https://huff.sh)
+This project serves as my foray into learning the [Huff prgramming language](https://huff.sh). It involves rewritting the [LlamaPay contracts](https://github.com/LlamaPay/llamapay/) to Huff.
 
 
 ### Requirements
