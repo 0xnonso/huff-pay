@@ -1,15 +1,24 @@
+/// SPDX-License-Identifier: MIT
+/// @author nonso
+/// @title HuffPay
+/// @notice This is an implementation of the llama pay contract here: (https://github.com/LlamaPay/llamapay/blob/master/contracts/LlamaPay.sol)
+
 ///////////////////////////////////////////////////////////////////////////////
 ///                                 IMPORTS                                 ///
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "../lib/huffmate/src/data-structures/Hashmap.huff"
 #include "../lib/huffmate/src/utils/SafeTransferLib.huff"
+#include "../lib/huffmate/src/math/SafeMath.huff"
 #include "../lib/huffmate/src/utils/Calls.huff"
+
+#include "../lib/Huff-Console/src/Console.huff"
 
 ///////////////////////////////////////////////////////////////////////////////
 ///                                INTERFACE                                ///
 ///////////////////////////////////////////////////////////////////////////////
 
+#define function decimals() nonpayable returns (uint8)
 #define function createStream(address, uint216) nonpayable returns ()
 #define function createStreamWithReason(address, uint216, string) nonpayable returns ()
 #define function withdraw(address, address, uint216) nonpayable returns ()
@@ -124,37 +133,31 @@
 ///                              CONSTRUCTOR                              ///
 /////////////////////////////////////////////////////////////////////////////
 
-#define macro HUFF_PAY_CONSTRUCTOR() = takes (0) returns  (0) {
-    0x04 calldataload
-    [_TOKEN]
-    sstore
-    0x20
-    0x00
-    0x00
-    0x00
-    0x04 calldataload
-    gas
-    staticcall
-    iszero
-    c_revert
-    jumpi
+#define macro CONSTRUCTOR() = takes (0) returns  (0) {
+    0x20     
+    0x40 codesize sub   
+    0x00          
+    codecopy              
 
-    0x00 mload
-    0x14
-    sub
-    0xa
-    exp
-    [_DECIMALS_DIVISOR]
-    sstore
-    stop
+    0x00 mload          
+    [_TOKEN]    
+    sstore               
 
-    c_revert:
-        0x00 0x00 revert
+    0x20          
+    0x20 codesize sub   
+    0x00                 
+    codecopy               
+
+    0x00 mload                  
+    [_DECIMALS_DIVISOR]    
+    sstore
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///                                  HELPERS                                ///
 ///////////////////////////////////////////////////////////////////////////////
+
+// #define macro GET_DECIMAL_DIVISOR() = takes () returns () {}
 
 #define macro GET_STREAM_ID() = takes (3) returns (1) {
                                       // [msg.sender, to, amountPerSec]
@@ -166,19 +169,19 @@
     sha3                              // []
 }
 
-#define macro GET_TOTAL_PAID_PER_SEC() = takes (1) returns  (1) {
+#define macro GET_TOTAL_PAID_PER_SEC() = takes (1) returns (1) {
                                       // [_PAYERS_VALUE]
     [_MASK]                           // [_MASK]
     and                               // [totalPaidPerSec]  
 }
 
-#define macro GET_PAYER_LAST_UPDATE() = takes (1) returns  (1) {
+#define macro GET_PAYER_LAST_UPDATE() = takes (1) returns (1) {
                                       // [_PAYERS_VALUE]
     0xd8                              // [216, _PAYERS_VALUE]
     shr                               // [lastPayerUpdate]
 }
 
-#define macro SET_LAST_PAYER_UPDATE() = takes (3) {
+#define macro SET_LAST_PAYER_UPDATE() = takes (3) returns (1) {
                                       // [oldValue, newLastPayerUpdate, slot]
     [_MASK]                           // [_MASK, oldValue, newLastPayerUpdate, slot]
     and                               // [_MASK & oldValue, newLastPayerUpdate, slot]
@@ -186,18 +189,20 @@
     0xd8                              // [216, newLastPayerUpdate, (_MASK & oldValue), slot]
     shl                               // [(newLastPayerUpdate << 216), (_MASK & oldValue), slot]
     or                                // [(newLastPayerUpdate << 216) | (_MASK & oldValue), slot]
-    swap1                             // [slot, (newLastPayerUpdate << 216) | (_MASK & oldValue)]
-    sstore                            // []
+    dup1                              // [(newLastPayerUpdate << 216) | (_MASK & oldValue), (newLastPayerUpdate << 216) | (_MASK & oldValue), slot]
+    swap2                             // [slot, (newLastPayerUpdate << 216) | (_MASK & oldValue), (newLastPayerUpdate << 216) | (_MASK & oldValue)]
+    sstore                            // [(newLastPayerUpdate << 216) | (_MASK & oldValue)]
 }
 
-#define macro SET_TOTAL_PAID_PER_SEC() = takes (3) {
-                                      // [oldValue, newTotalPaidPerSec, slot]
+#define macro SET_TOTAL_PAID_PER_SEC() = takes (3) returns (1) {
+                                      // [oldValue, newTotalPaidPerSec, slot]                                 
     [_MASK]                           // [_MASK, oldValue, newTotalPaidPerSec, slot]
     not                               // [NOT_MASK, oldValue, newTotalPaidPerSec, slot]
     and                               // [(NOT_MASK & oldValue), newTotalPaidPerSec, slot]
     or                                // [(NOT_MASK & oldValue) | newTotalPaidPerSec, slot]
-    swap1                             // [slot, (NOT_MASK & oldValue) | newTotalPaidPerSec]
-    sstore                            // []
+    dup1                              // [(NOT_MASK & oldValue) | newTotalPaidPerSec, (NOT_MASK & oldValue) | newTotalPaidPerSec, slot]
+    swap2                             // [slot, (NOT_MASK & oldValue) | newTotalPaidPerSec, (NOT_MASK & oldValue) | newTotalPaidPerSec]
+    sstore                            // [(NOT_MASK & oldValue) | newTotalPaidPerSec]
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -208,20 +213,20 @@
     0x04 calldataload                 // [to]
     0x24 calldataload                 // [amountPerSec, to]
     _CREATE_STREAM()                  // [streamID]
-    0x00 mstore                       // []
-    0x24 calldataload                 // [amountPerSec]
     0x20 mstore                       // []
+    0x24 calldataload                 // [amountPerSec]
+    0x00 mstore                       // []
     0x04 calldataload                 // [to]
     caller                            // [msg.sender, to]
-    __EVENT_HASH(StreamCreated)        // [event_sig, msg.sender, to]
+    __EVENT_HASH(StreamCreated)       // [event_sig, msg.sender, to]
     0x40 0x00                         // [0x00, 0x40, event_sig, msg.sender, to]
     log3                              // []
+    stop                        
 }
 
 #define macro CREATE_STREAM_WITH_REASON() = takes (0) returns  (0) {
     0x04 calldataload                 // [to]
     0x24 calldataload                 // [amountPerSec, to]
-    
     _CREATE_STREAM()                  // [streamID]
     0x00 mstore                       // []
     0x24 calldataload                 // [amountPerSec]
@@ -232,37 +237,41 @@
     calldatacopy                      // []
     0x04 calldataload                 // [to]
     caller                            // [msg.sender, to]
-    __EVENT_HASH(StreamCreated)        // [event_sig, msg.sender, to]
+    __EVENT_HASH(StreamCreated)       // [event_sig, msg.sender, to]
     0x64 calldataload                 // [stringSize, event_sig, msg.sender, to]
     0x40                              // [0x40, stringSize, event_sig, msg.sender, to]
     add                               // [0x40 + stringSize, event_sig, msg.sender, to]
     0x00                              // [0x00, size, event_sig, msg.sender, to]
     log3                              // []
+    stop
 }
 
 #define macro DEPOSIT() = takes (0) returns  (0) {
     caller                            // [msg.sender]
     [_BALANCES]                       // [_BALANCES, msg.sender]
-    GET_SLOT_FROM_KEYS(_ZERO)              // [_BALANCES_SLOT]
+    GET_SLOT_FROM_KEYS(_ZERO)         // [_BALANCES_SLOT]
     dup1                              // [_BALANCES_SLOT, _BALANCES_SLOT]
     sload                             // [_BALANCES_VALUE, _BALANCES_SLOT]
     0x04 calldataload                 // [amount, _BALANCES_VALUE, _BALANCES_SLOT]
     [_DECIMALS_DIVISOR]               // [_DECIMALS_DIVISOR, amount, _BALANCES_VALUE, _BALANCES_SLOT]
-    mul                               // [(_DECIMALS_DIVISOR * amount), _BALANCES_VALUE, _BALANCES_SLOT]
-    add                               // [((_DECIMALS_DIVISOR * amount) + _BALANCES_VALUE), _BALANCES_SLOT]
-    swap1                             // [_BALANCES_SLOT, ((_DECIMALS_DIVISOR * amount) + _BALANCES_VALUE)]
+    sload                             // [_DECIMALS_DIVISOR_VALUE, amount, _BALANCES_VALUE, _BALANCES_SLOT]
+    mul                               // [(_DECIMALS_DIVISOR_VALUE * amount), _BALANCES_VALUE, _BALANCES_SLOT]
+    add                               // [((_DECIMALS_DIVISOR_VALUE * amount) + _BALANCES_VALUE), _BALANCES_SLOT]
+    swap1                             // [_BALANCES_SLOT, ((_DECIMALS_DIVISOR_VALUE * amount) + _BALANCES_VALUE)]
     sstore                            // []
     [_TOKEN]                          // [_TOKEN]
-    0x04 calldataload                 // [amount, _TOKEN]
-    address                           // [address.this, amount, _TOKEN]
-    caller                            // [msg.sender, address.this, amount, _TOKEN]
-    SAFE_TRANSFER_FROM(_ZERO)             // []
+    sload                             // [_TOKEN_VALUE]
+    0x04 calldataload                 // [amount, _TOKEN_VALUE]
+    address                           // [address.this, amount, _TOKEN_VALUE]
+    caller                            // [msg.sender, address.this, amount, _TOKEN_VALUE]
+    SAFE_TRANSFER_FROM(_ZERO)         // []
     0x04 calldataload                 // [amount]
     0x00 mstore                       // []
     caller                            // [msg.sender]
-    __EVENT_HASH(PayerDeposit)         // [event_sig, msg.sender]
+    __EVENT_HASH(PayerDeposit)        // [event_sig, msg.sender]
     0x20 0x00                         // [0x00, 0x20, event_sig, msg.sender]
     log2                              // []
+    stop
 }
 
 
@@ -278,7 +287,7 @@
     jumpi                             // [streamID, amountPerSec]
     dup1                              // [streamID, streamID, amountPerSec]
     [_STREAM_TO_START]                // [_STREAM_TO_START, streamID, streamID, amountPerSec]
-    GET_SLOT_FROM_KEYS(_ZERO)              // [_STREAM_TO_START_SLOT, streamID, amountPerSec]
+    GET_SLOT_FROM_KEYS(_ZERO)         // [_STREAM_TO_START_SLOT, streamID, amountPerSec]
     dup1                              // [_STREAM_TO_START_SLOT, _STREAM_TO_START_SLOT, streamID, amountPerSec]
     sload                             // [_STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, amountPerSec]
     iszero                            // [_STREAM_TO_START_VALUE == 0, _STREAM_TO_START_SLOT, streamID, amountPerSec]
@@ -301,7 +310,7 @@
         sstore                        // [streamID, amountPerSec]
         caller                        // [msg.sender, streamID, amountPerSec]
         [_PAYERS]                     // [_PAYERS, msg.sender, streamID, amountPerSec]
-        GET_SLOT_FROM_KEYS(_ZERO)          // [_PAYERS_SLOT, streamID, amountPerSec]
+        GET_SLOT_FROM_KEYS(_ZERO)     // [_PAYERS_SLOT, streamID, amountPerSec]
         dup1                          // [_PAYERS_SLOT, _PAYERS_SLOT, streamID, amountPerSec]
         sload                         // [_PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         dup1                          // [_PAYERS_VALUE, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
@@ -313,7 +322,7 @@
         mul                           // [totalPaid, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         caller                        // [msg.sender, totalPaid, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         [_BALANCES]                   // [_BALANCES, msg.sender, totalPaid, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
-        GET_SLOT_FROM_KEYS(_ZERO)          // [_BALANCES_SLOT, totalPaid, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
+        GET_SLOT_FROM_KEYS(_ZERO)     // [_BALANCES_SLOT, totalPaid, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         dup1                          // [_BALANCES_SLOT, _BALANCES_SLOT, totalPaid, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         sload                         // [_BALANCES_VALUE, _BALANCES_SLOT, totalPaid, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         swap1                         // [_BALANCES_SLOT, _BALANCES_VALUE, totalPaid, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
@@ -322,16 +331,17 @@
         sub                           // [(_BALANCES_VALUE - totalPaid), _BALANCES_SLOT, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         swap1                         // [_BALANCES_SLOT, (_BALANCES_VALUE - totalPaid), _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         sstore                        // [_PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
-        dup2                          // [_PAYERS_SLOT, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
-        timestamp                     // [timestamp, _PAYERS_SLOT, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
-        dup3                          // [_PAYERS_VALUE, timestamp, _PAYERS_SLOT, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
-        SET_LAST_PAYER_UPDATE()      // [_PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
+        timestamp                     // [timestamp, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
+        dup3                          // [_PAYERS_SLOT, timestamp, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
+        swap2                         // [_PAYERS_VALUE, timestamp, _PAYERS_SLOT, _PAYERS_SLOT, streamID, amountPerSec]
+        SET_LAST_PAYER_UPDATE()       // [_PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         dup1                          // [_PAYERS_VALUE, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         GET_TOTAL_PAID_PER_SEC()      // [totalPaidPerSec, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         dup5                          // [amountPerSec, totalPaidPerSec, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         add                           // [(amountPerSec + totalPaidPerSec), _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountPerSec]
         swap1                         // [_PAYERS_VALUE, (amountPerSec + totalPaidPerSec), _PAYERS_SLOT, streamID, amountPerSec]
-        SET_TOTAL_PAID_PER_SEC()      // [streamID, amountPerSec]
+        SET_TOTAL_PAID_PER_SEC()      // [_PAYERS_VALUE, streamID, amountPerSec]
+        pop                           // [streamID, amountPerSec]
         swap1                         // [amountPerSec, streamID]
         pop                           // [streamID]
 }
@@ -347,9 +357,10 @@
     0x20 mstore                       // []
     0x04 calldataload                 // [to]
     caller                            // [msg.sender, to]
-    __EVENT_HASH(StreamCancelled)      // [event_sig, msg.sender, to]
+    __EVENT_HASH(StreamCancelled)     // [event_sig, msg.sender, to]
     0x40 0x00                         // [0x00, 0x40, event_sig, msg.sender, to]
     log3                              // []
+    stop
 }
 
 #define macro PAUSE_STREAM() = takes (0) returns  (0) {
@@ -359,9 +370,10 @@
     0x20 mstore                       // []
     0x04 calldataload                 // [to]
     caller                            // [msg.sender, to]
-    __EVENT_HASH(StreamPaused)         // [event_sig, msg.sender, to]
+    __EVENT_HASH(StreamPaused)        // [event_sig, msg.sender, to]
     0x40 0x00                         // [0x00, 0x40, event_sig, msg.sender, to]
     log3                              // []
+    stop
 }
 
 #define macro MODIFY_STREAM() = takes (0) returns  (0) {
@@ -379,8 +391,9 @@
     0x04 calldataload                 // [oldTo, to]
     caller                            // [caller, oldTo, to]
     0x80 0x00                         // [0x00, 0x80, caller, oldTo, to]
-    __EVENT_HASH(StreamModified)       // [event_sig, 0x00, 0x80, caller, oldTo, to]
+    __EVENT_HASH(StreamModified)      // [event_sig, 0x00, 0x80, caller, oldTo, to]
     log4                              // []
+    stop
 }
 
 
@@ -396,19 +409,24 @@
     dup3                              // [_PAYERS_SLOT, lastUpdate, streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
     swap1                             // [lastUpdate, _PAYERS_SLOT, streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
     dup5                              // [_PAYERS_VALUE, lastUpdate, _PAYERS_SLOT, streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
-    SET_LAST_PAYER_UPDATE()          // [streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
-    swap2                             // [_PAYERS_VALUE, _PAYERS_SLOT, streamID, amountToTransfer]
-    0x24 calldataload                 // [amountPerSec, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountToTransfer]
-    dup2                              // [_PAYERS_VALUE, amountPerSec, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountToTransfer]
-    GET_TOTAL_PAID_PER_SEC()          // [totalPaidPerSec, amountPerSec, _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountToTransfer]
-    sub                               // [(totalPaidPerSec - amountPerSec), _PAYERS_VALUE, _PAYERS_SLOT, streamID, amountToTransfer]
-    swap1                             // [_PAYERS_VALUE, (totalPaidPerSec - amountPerSec), _PAYERS_SLOT, streamID, amountToTransfer]
-    SET_TOTAL_PAID_PER_SEC()          // [streamID, amountToTransfer]
-    swap1                             // [amountToTransfer, streamID]
-    [_TOKEN]                          // [_TOKEN, amountToTransfer, streamID]
-    swap1                             // [amountToTransfer, _TOKEN, streamID]
-    0x04 calldataload                 // [to, amountToTransfer, _TOKEN, streamID]
-    SAFE_TRANSFER(_ZERO)                  // [streamID]
+    SET_LAST_PAYER_UPDATE()           // [NEW_PAYERS_VALUE, streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
+    swap3                             // [_PAYERS_VALUE, streamID, _PAYERS_SLOT, NEW_PAYERS_VALUE, amountToTransfer]
+    pop                               // [streamID, _PAYERS_SLOT, NEW_PAYERS_VALUE, amountToTransfer]
+    swap1                             // [_PAYERS_SLOT, streamID, NEW_PAYERS_VALUE, amountToTransfer]
+    0x24 calldataload                 // [amountPerSec, _PAYERS_SLOT, streamID, NEW_PAYERS_VALUE, amountToTransfer]
+    dup4                              // [NEW_PAYERS_VALUE, amountPerSec, _PAYERS_SLOT, streamID, NEW_PAYERS_VALUE, amountToTransfer]
+    GET_TOTAL_PAID_PER_SEC()          // [totalPaidPerSec, amountPerSec, _PAYERS_SLOT, streamID, NEW_PAYERS_VALUE, amountToTransfer]
+    sub                               // [totalPaidPerSec - amountPerSec, _PAYERS_SLOT, streamID, NEW_PAYERS_VALUE, amountToTransfer]
+    dup4                              // [NEW_PAYERS_VALUE, totalPaidPerSec - amountPerSec, _PAYERS_SLOT, streamID, NEW_PAYERS_VALUE, amountToTransfer]
+    SET_TOTAL_PAID_PER_SEC()          // [NEW_PAYERS_VALUE, streamID, NEW_PAYERS_VALUE, amountToTransfer]
+    pop                               // [streamID, NEW_PAYERS_VALUE, amountToTransfer]
+    swap2                             // [amountToTransfer, NEW_PAYERS_VALUE, streamID]
+    [_TOKEN]                          // [_TOKEN, amountToTransfer, NEW_PAYERS_VALUE, streamID]
+    sload                             // [_TOKEN_VALUE, amountToTransfer, NEW_PAYERS_VALUE, streamID]
+    swap2                             // [NEW_PAYERS_VALUE, amountToTransfer, _TOKEN_VALUE, streamID]
+    pop                               // [amountToTransfer, _TOKEN_VALUE, streamID]
+    0x04 calldataload                 // [to, amountToTransfer, _TOKEN_VALUE, streamID]
+    SAFE_TRANSFER(_ZERO)              // [streamID]
 }
 
 
@@ -429,20 +447,23 @@
     sload                             // [tokenAddress, amountToTransfer, streamID, _PAYERS_SLOT, _PAYERS_VALUE, lastUpdate]
     swap1                             // [amountToTransfer, tokenAddress, streamID, _PAYERS_SLOT, _PAYERS_VALUE, lastUpdate]
     0x24 calldataload                 // [to, amountToTransfer, tokenAddress, streamID, _PAYERS_SLOT, _PAYERS_VALUE, lastUpdate]
-    SAFE_TRANSFER(_ZERO)                  // [streamID, _PAYERS_SLOT, _PAYERS_VALUE, lastUpdate]
+    SAFE_TRANSFER(_ZERO)              // [streamID, _PAYERS_SLOT, _PAYERS_VALUE, lastUpdate]
     pop                               // [_PAYERS_SLOT, _PAYERS_VALUE, lastUpdate]
-    swap2                             // [lastUpdate, _PAYERS_SLOT, _PAYERS_VALUE]
-    swap1                             // [_PAYERS_SLOT, lastUpdate, _PAYERS_VALUE]
-    SET_LAST_PAYER_UPDATE()          // []
+    swap2                             // [lastUpdate, _PAYERS_VALUE, _PAYERS_SLOT]
+    swap1                             // [_PAYERS_VALUE, lastUpdate, _PAYERS_SLOT]
+    SET_LAST_PAYER_UPDATE()           // [NEW_PAYERS_VALUE]
+    pop                               // []
+    stop
 }
 
 #define macro WITHDRAW_PAYER() = takes (0) returns  (0) {
     caller                            // [msg.sender]
     [_PAYERS]                         // [_PAYERS, caller]
-    GET_SLOT_FROM_KEYS(_ZERO)              // [_PAYERS_SLOT]
+    GET_SLOT_FROM_KEYS(_ZERO)         // [_PAYERS_SLOT]
     sload                             // [_PAYERS_VALUE]
     0x04 calldataload                 // [amount, PAYER_VALUE]
     _WITHDRAW_PAYER()                 // []
+    stop
 }
 
 #define macro WITHDRAW_PAYER_ALL() = takes (0) returns  (0) {
@@ -450,7 +471,7 @@
     [_PAYERS]                         // [_PAYERS, msg.sender]
     GET_SLOT_FROM_KEYS(_ZERO)         // [_PAYERS_SLOT]
     sload                             // [_PAYERS_VALUE]
-    dup2                              // [_PAYERS_VALUE, _PAYERS_VALUE]
+    dup1                              // [_PAYERS_VALUE, _PAYERS_VALUE]
     GET_PAYER_LAST_UPDATE()           // [lastPayerUpdate, _PAYERS_VALUE]
     timestamp                         // [timestamp, lastPayerUpdate, _PAYERS_VALUE]
     sub                               // [delta, _PAYERS_VALUE]
@@ -463,6 +484,7 @@
     sload                             // [_BALANCES_VALUE, (totalPaidPerSec * delta), _PAYERS_VALUE]
     sub                               // [_BALANCES_VALUE - (totalPaidPerSec * delta), _PAYERS_VALUE]
     _WITHDRAW_PAYER()                 // []
+    stop
 }
 
 #define macro _WITHDRAW() = takes (3) returns  (6) {
@@ -478,12 +500,11 @@
     sload                             // [_STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
     dup1                              // [_STREAM_TO_START_VALUE, _STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
     iszero                            // [_STREAM_TO_START_VALUE == 0, _STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
-
     stream_does_not_exist             // [error_jumpdest, _STREAM_TO_START_VALUE == 0, _STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
     jumpi                             // [_STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
     dup4                              // [from, _STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
     [_PAYERS]                         // [_PAYERS, from, _STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
-    GET_SLOT_FROM_KEYS(_ZERO)              // [_PAYERS_SLOT, _STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
+    GET_SLOT_FROM_KEYS(_ZERO)         // [_PAYERS_SLOT, _STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
     dup1                              // [_PAYERS_SLOT, _PAYERS_SLOT, _STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
     sload                             // [_PAYERS_VALUE, _PAYERS_SLOT, _STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
     dup1                              // [_PAYERS_VALUE, _PAYERS_VALUE, _PAYERS_SLOT, _STREAM_TO_START_VALUE, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
@@ -547,25 +568,25 @@
         dup9                          // [amountPerSec, delta, _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
         mul                           // [(amountPerSec * delta), _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
         [_DECIMALS_DIVISOR]           // [_DECIMALS_DIVISOR, (amountPerSec * delta), _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
+        sload
         swap1                         // [(amountPerSec * delta), _DECIMALS_DIVISOR, _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
         div                           // [amountToTransfer, _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
         
     emit_withdraw:
                                       // [amountToTransfer, _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
         dup1                          // [amountToTransfer, amountToTransfer, _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
-        0x00 mstore                   // [amountToTransfer, _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
+        0x40 mstore                   // [amountToTransfer, _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
         dup6                          // [streamID, amountToTransfer, _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
         0x20 mstore                   // [amountToTransfer, _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountPerSec]
         swap8                         // [amountPerSec, _PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountToTransfer]
-        0x40 mstore                   // [_PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountToTransfer]
+        0x00 mstore                   // [_PAYERS_VALUE, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, to, amountToTransfer]
         swap6                         // [to, _PAYERS_SLOT, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, _PAYERS_VALUE, amountToTransfer]
         swap1                         // [_PAYERS_SLOT, to, lastUpdate, _STREAM_TO_START_SLOT, streamID, from, _PAYERS_VALUE, amountToTransfer]
         swap5                         // [from, to, lastUpdate, _STREAM_TO_START_SLOT, streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
-        __EVENT_HASH(Withdraw)         // [event_sig, from, to, lastUpdate, _STREAM_TO_START_SLOT, streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
+        __EVENT_HASH(Withdraw)        // [event_sig, from, to, lastUpdate, _STREAM_TO_START_SLOT, streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
         0x60                          // [0x60, event_sig, from, to, lastUpdate, _STREAM_TO_START_SLOT, streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
         0x00                          // [0x00, 0x60, event_sig, from, to, lastUpdate, _STREAM_TO_START_SLOT, streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
         log3                          // [lastUpdate, _STREAM_TO_START_SLOT, streamID, _PAYERS_SLOT, _PAYERS_VALUE, amountToTransfer]
-
         finish
         jump
 
@@ -582,13 +603,12 @@
                                       // [amount, PAYER_VALUE]
     caller                            // [msg.sender, amount, PAYER_VALUE]
     [_BALANCES]                       // [_BALANCES, msg.sender, amount, PAYER_VALUE]
-    GET_SLOT_FROM_KEYS(_ZERO)              // [_BALANCES_SLOT, amount, PAYER_VALUE]
-    dup1                              // [_BALANCES_SLOT, _BALANCES_SLOT, amount, PAYER_VALUE]
+    GET_SLOT_FROM_KEYS(_ZERO)         // [_BALANCES_SLOT, amount, PAYER_VALUE]
     dup1                              // [_BALANCES_SLOT, _BALANCES_SLOT, amount, PAYER_VALUE]
     sload                             // [_BALANCES_VALUE, _BALANCES_SLOT, amount, PAYER_VALUE]
     dup3                              // [amount, _BALANCES_VALUE, _BALANCES_SLOT, amount, PAYER_VALUE]
     swap1                             // [_BALANCES_VALUE, amount, _BALANCES_SLOT, amount, PAYER_VALUE]
-    sub                               // [(_BALANCES_VALUE - amount), _BALANCES_SLOT, amount, PAYER_VALUE]
+    SAFE_SUB()                        // [(_BALANCES_VALUE - amount), _BALANCES_SLOT, amount, PAYER_VALUE]
     dup1                              // [(_BALANCES_VALUE - amount), (_BALANCES_VALUE - amount), _BALANCES_SLOT, amount, PAYER_VALUE] 
     swap2                             // [_BALANCES_SLOT, _BALANCES_VALUE - amount, _BALANCES_VALUE - amount, amount, PAYER_VALUE] 
     sstore                            // [(_BALANCES_VALUE - amount), amount, PAYER_VALUE]
@@ -602,25 +622,27 @@
     swap1                             // [(_BALANCES_VALUE - amount), (totalPaidPerSec * delta), amount, PAYER_VALUE]
     lt                                // [(_BALANCES_VALUE - amount) < (totalPaidPerSec * delta), amount, PAYER_VALUE]
     iszero                            // [(_BALANCES_VALUE - amount) < (totalPaidPerSec * delta) == 0, amount, PAYER_VALUE]
-    continue 
+    continue                          // [continue_jumpdest, (_BALANCES_VALUE - amount) < (totalPaidPerSec * delta) == 0, amount, PAYER_VALUE]
     jumpi                             // [amount, PAYER_VALUE]
 
      no_rug:
-        __ERROR(NO_RUG)  // [error_selector]
+        __ERROR(NO_RUG)               // [error_selector]
         0x00 mstore
         0x04 0x00 revert
     
     continue:
         [_DECIMALS_DIVISOR]           // [_DECIMALS_DIVISOR, amount, PAYER_VALUE]
-        swap1                         // [amount, _DECIMALS_DIVISOR, PAYER_VALUE]
+        sload                         // [_DECIMALS_DIVISOR_VALUE, amount, PAYER_VALUE]
+        swap1                         // [amount, _DECIMALS_DIVISOR_VALUE, PAYER_VALUE]
         div                           // [tokenAmount, PAYER_VALUE]
         [_TOKEN]                      // [_TOKEN, tokenAmount, PAYER_VALUE]
-        dup2                          // [tokenAmount, _TOKEN, tokenAmount, PAYER_VALUE]
-        caller                        // [msg.sender, tokenAmount, _TOKEN, tokenAmount, PAYER_VALUE]
-        SAFE_TRANSFER(_ZERO)              // [tokenAmount, PAYER_VALUE]
+        sload                         // [_TOKEN_ADDR, tokenAmount, PAYER_VALUE]
+        dup2                          // [tokenAmount, _TOKEN_ADDR, tokenAmount, PAYER_VALUE]
+        caller                        // [msg.sender, tokenAmount, _TOKEN_ADDR, tokenAmount, PAYER_VALUE]
+        SAFE_TRANSFER(_ZERO)          // [tokenAmount, PAYER_VALUE]
         0x00 mstore                   // [PAYER_VALUE]
         caller                        // [msg.sender, PAYER_VALUE]
-        __EVENT_HASH(PayerWithdraw)    // [event_sig, msg.sender, PAYER_VALUE]
+        __EVENT_HASH(PayerWithdraw)   // [event_sig, msg.sender, PAYER_VALUE]
         0x20                          // [0x20, event_sig, msg.sender, PAYER_VALUE]
         0x00                          // [0x00, 0x20, event_sig, msg.sender, PAYER_VALUE]
         log2                          // [0x00, 0x20, event_sig, msg.sender, PAYER_VALUE]

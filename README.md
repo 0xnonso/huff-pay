@@ -1,22 +1,20 @@
-This project serves as my foray into learning the [Huff prgramming language](https://huff.sh). It involves rewritting the [LlamaPay contracts](https://github.com/LlamaPay/llamapay/) to Huff.
+# HuffPay
+[LlamaPay](https://github.com/LlamaPay/llamapay) implementation in [huff](https://huff.sh).
 
+## Features
 
-### Requirements
-
-The following will need to be installed in order to run this project. Please follow the links and instructions.
-
--   [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)  
-    -   You'll know you've done it right if you can run `git --version`
--   [Foundry / Foundryup](https://github.com/gakonst/foundry)
-    -   This will install `forge`, `cast`, and `anvil`
-    -   You can test you've installed them right by running `forge --version` and get an output like: `forge 0.2.0 (92f8951 2022-08-06T00:09:32.96582Z)`
-    -   To get the latest of each, just run `foundryup`
--   [Huff Compiler](https://docs.huff.sh/get-started/installing/)
-    -   You'll know you've done it right if you can run `huffc --version` and get an output like: `huffc 0.3.0`
+### Gas costs
+Cost to create a stream:
+| Protocol | Cost (gas) |
+|----------|-------------|
+| HuffPay | 52,073
+| LlamaPay | 69,963
+| Sablier | 240,070
+| SuperFluid | 279,992
 
 ### Quickstart
 
-1. Clone this repo or use template
+1. Clone this repo
 
 ```
 git clone https://github.com/0xnonso/huff-pay
@@ -25,15 +23,11 @@ cd huff-pay
 
 2. Install dependencies
 
-Once you've cloned and entered into your repository, you need to install the necessary dependencies. In order to do so, simply run:
-
 ```shell
 forge install
 ```
 
 3. Build & Test
-
-To build and test your contracts, you can run:
 
 ```shell
 forge build
@@ -41,16 +35,6 @@ forge test
 ```
 
 
-
-## License
-
-[The Unlicense](https://github.com/huff-language/huff-project-template/blob/master/LICENSE)
-
-
-## Acknowledgements
-
-- [forge-template](https://github.com/foundry-rs/forge-template)
-- [femplate](https://github.com/abigger87/femplate)
 
 
 ## Disclaimer
